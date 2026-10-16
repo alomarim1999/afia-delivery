@@ -542,9 +542,10 @@ function renderUsers(){
   $("#userList").innerHTML = list.length ? list.map(u=>`
     <div class="user-row" data-id="${esc(u.id)}">
       <div><b>${esc(u.name)}</b> ${label[u.role]||""}<div class="note">${esc(u.email||"")}</div></div>
-      <div class="row">${u.id===uid?"":u.role==="pending"?`<button class="btn small primary approve" type="button">موافقة كسايق</button><button class="btn small ghost warn disable" type="button">رفض</button>`
-        :u.role==="driver"?`<button class="btn small ghost warn disable" type="button">إيقاف</button>`
-        :u.role==="disabled"?`<button class="btn small approve" type="button">إعادة تفعيل</button>`:""}</div>
+      <div class="row">${u.id===uid?`<span class="note">هذا حسابك</span>`:u.role==="pending"?`<button class="btn small primary approve" type="button">موافقة كسايق</button><button class="btn small promote" type="button">ترقية لمدير</button><button class="btn small ghost warn disable" type="button">رفض</button>`
+        :u.role==="driver"?`<button class="btn small promote" type="button">ترقية لمدير</button><button class="btn small ghost warn disable" type="button">إيقاف</button>`
+        :u.role==="manager"?`<button class="btn small demote" type="button">إرجاع لسايق</button><button class="btn small ghost warn disable" type="button">إيقاف</button>`
+        :u.role==="disabled"?`<button class="btn small approve" type="button">إعادة تفعيل كسايق</button>`:""}</div>
       ${u.role==="driver"?`<div class="row" style="flex:1 1 100%"><input class="liveIn" id="live-${esc(u.id)}" type="url" value="${esc(u.liveLink||"")}" placeholder="رابط مشاركة الموقع من Google Maps (اختياري)" style="flex:1 1 220px"><button class="btn small saveLive" type="button">حفظ الرابط</button></div>`:""}
     </div>`).join("") : `<div class="empty">ما في حسابات.</div>`;
 }
@@ -553,7 +554,15 @@ $("#userList").addEventListener("click", async e=>{
   const ref=fs.doc("users/"+row.dataset.id);
   try{
     if(e.target.classList.contains("approve")){ await ref.update({role:"driver"}); toast("تمت الموافقة"); }
-    else if(e.target.classList.contains("disable")){ await ref.update({role:"disabled"}); toast("تم الإيقاف"); }
+    else if(e.target.classList.contains("promote")){
+      armed(e.target,"تأكيد: يصير مدير", async()=>{ try{ await ref.update({role:"manager"}); toast("صار مدير — يشوف كل شي ويقدر يدير الحسابات"); }catch{ toast("ما انحفظ التعديل"); } });
+    }
+    else if(e.target.classList.contains("demote")){
+      armed(e.target,"تأكيد: يرجع سايق", async()=>{ try{ await ref.update({role:"driver"}); toast("رجع سايق"); }catch{ toast("ما انحفظ التعديل"); } });
+    }
+    else if(e.target.classList.contains("disable")){
+      armed(e.target,"تأكيد الإيقاف", async()=>{ try{ await ref.update({role:"disabled"}); toast("تم الإيقاف"); }catch{ toast("ما انحفظ التعديل"); } });
+    }
     else if(e.target.classList.contains("saveLive")){
       const v=row.querySelector(".liveIn").value.trim();
       if(v && !safeUrl(v)) return toast("الرابط لازم يبدأ بـ https://");
