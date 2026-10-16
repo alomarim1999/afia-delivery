@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d6b5e">
+<title>توصيل عافية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Readex+Pro:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#f3f5f4; --surface:#fff; --ink:#15211f; --muted:#5d6b68; --line:#d9e0de;
+  --accent:#0d6b5e; --accent-ink:#fff; --accent-soft:#dcefeb;
+  --sun:#b77a08; --sun-soft:#fbefd6; --ok:#2f7d32; --ok-soft:#e1f1e1; --bad:#b3372c; --bad-soft:#f8e1de; --idle:#8a9592;
+  --display:"Readex Pro","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1514; --surface:#18211f; --ink:#e6eeec; --muted:#93a39f; --line:#2a3633;
+  --accent:#3fb3a1; --accent-ink:#06211d; --accent-soft:#16332e;
+  --sun:#e7b24a; --sun-soft:#352a12; --ok:#7cc77f; --ok-soft:#1b2e1c; --bad:#ef8a7f; --bad-soft:#3a1d1a; --idle:#6c7875; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;padding-top:env(safe-area-inset-top,0px)}
+[hidden]{display:none!important}
+.wrap{max-width:1180px;margin:0 auto;padding-block:14px 60px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+h1{font-family:var(--display);font-weight:700;font-size:1.45rem;margin:0}
+h2{font-family:var(--display);font-weight:500;font-size:1.08rem;margin:0}
+.sub{color:var(--muted);font-size:.86rem}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.field{display:flex;flex-direction:column;gap:5px;flex:1 1 150px;min-width:0}
+label{font-size:.82rem;color:var(--muted);font-weight:500}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{font:600 .95rem var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.big{width:100%;padding:16px;font-size:1.12rem;font-family:var(--display);font-weight:500}
+.btn.small{padding:6px 10px;font-size:.84rem}
+.btn.ghost{background:none}
+.btn.warn{color:var(--bad);border-color:var(--bad)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.linkbtn{background:none;border:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;padding:0}
+.auth{max-width:420px;margin:8vh auto 0;width:100%}
+.err{color:var(--bad);font-size:.88rem;min-height:1.2em}
+.tally{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}
+.stat b{font-family:var(--display);font-size:1.3rem;font-weight:500;font-variant-numeric:tabular-nums}
+.stat span{font-size:.8rem;color:var(--muted)}
+.stat.lead{background:var(--accent-soft);border-color:transparent}
+.track-bar{display:flex;gap:10px;align-items:center;border-radius:12px;padding:12px 14px;font-weight:500}
+.track-bar.on{background:var(--ok-soft);color:var(--ok)}
+.track-bar.off{background:var(--bg);color:var(--muted)}
+.track-bar.bad{background:var(--bad-soft);color:var(--bad)}
+.dot{width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
+.track-bar.on .dot{animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.track-bar.on .dot{animation:none}}
+.list{display:flex;flex-direction:column;gap:8px}
+.order{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.order .what{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;min-width:0}
+.order .area{font-weight:600;font-size:1.02rem}
+.order .val{font-variant-numeric:tabular-nums;font-weight:600}
+.order .meta{grid-column:1/-1;color:var(--muted);font-size:.84rem;font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;gap:4px 14px}
+.order .acts{display:flex;gap:6px}
+.pill{display:inline-block;font-size:.76rem;font-weight:600;padding:2px 9px;border-radius:999px}
+.pill.out{background:var(--sun-soft);color:var(--sun)}
+.pill.done{background:var(--ok-soft);color:var(--ok)}
+.pill.cancel{background:var(--bad-soft);color:var(--bad)}
+.pill.idle{background:var(--bg);color:var(--idle)}
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:680px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;text-align:start;border-bottom:1px solid var(--line);white-space:nowrap;font-size:.9rem}
+th{font-weight:600;color:var(--muted);font-size:.8rem;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+tfoot td{font-weight:700;background:var(--bg)}
+td a{color:var(--accent);font-weight:600;text-decoration:none}
+.empty{color:var(--muted);text-align:center;padding:20px 10px;border:1px dashed var(--line);border-radius:12px}
+.note{font-size:.84rem;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+@media (min-width:900px){.grid2{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}}
+#map{height:460px;border-radius:12px;border:1px solid var(--line);z-index:0}
+@media (max-width:600px){#map{height:360px}}
+.drv{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:10px;border-bottom:1px solid var(--line);cursor:pointer}
+.drv:last-child{border-bottom:0}
+.drv b{display:block}
+.marker-label{background:var(--surface);color:var(--ink);border:2px solid var(--c);border-radius:999px;padding:2px 10px;font:600 13px var(--body);white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25);transform:translate(-50%,-130%);position:absolute}
+.marker-pin{width:16px;height:16px;border-radius:50%;background:var(--c);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);position:absolute;transform:translate(-50%,-50%)}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:500;z-index:1000;max-width:90vw;text-align:center}
+.user-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding-block:9px;border-bottom:1px solid var(--line)}
+.user-row:last-child{border-bottom:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>توصيل عافية</h1>
+      <div class="sub" id="todayLabel"></div>
+    </div>
+    <div class="row" style="align-items:center" id="whoBox" hidden>
+      <span id="whoName" style="font-weight:600"></span>
+      <button class="btn small ghost" id="btnLogout" type="button">خروج</button>
+    </div>
+  </header>
+
+  <div class="empty" id="cfgMissing" hidden>لم تُضبط إعدادات Firebase بعد. افتح ملف <b>config.js</b> والصق إعدادات مشروعك.</div>
+
+  <!-- AUTH -->
+  <section id="scrAuth" class="auth" hidden>
+    <form class="panel" id="loginForm">
+      <h2>تسجيل الدخول</h2>
+      <div class="field"><label for="lEmail">الإيميل</label><input id="lEmail" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="lPass">كلمة السر</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+      <div class="err" id="lErr"></div>
+      <button class="btn primary big" type="submit">دخول</button>
+      <div class="note">سايق جديد؟ <button class="linkbtn" type="button" id="toReg">سجّل حساب</button></div>
+    </form>
+    <form class="panel" id="regForm" hidden>
+      <h2>حساب سايق جديد</h2>
+      <div class="field"><label for="rName">اسمك</label><input id="rName" required></div>
+      <div class="field"><label for="rEmail">الإيميل</label><input id="rEmail" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="rPass">كلمة السر (6 أحرف أو أكثر)</label><input id="rPass" type="password" minlength="6" autocomplete="new-password" required></div>
+      <div class="err" id="rErr"></div>
+      <button class="btn primary big" type="submit">إنشاء الحساب</button>
+      <div class="note">عندك حساب؟ <button class="linkbtn" type="button" id="toLogin">ادخل</button></div>
+    </form>
+  </section>
+
+  <section id="scrPending" class="auth" hidden>
+    <div class="panel"><h2>حسابك بانتظار موافقة المدير</h2><p class="note" style="margin:0">أول ما يوافق المدير تفتح لك صفحة الطلبات تلقائياً.</p></div>
+  </section>
+
+  <!-- DRIVER -->
+  <section id="scrDriver" class="grid2" hidden>
+    <div class="panel">
+      <div class="track-bar off" id="trackBar"><span class="dot"></span><span id="trackText">التتبع متوقف — يبدأ لما تستلم طلب</span></div>
+      <form id="newOrder" class="row">
+        <div class="field"><label for="oArea">المنطقة</label><input id="oArea" list="areas" required placeholder="مثال: السالمية" autocomplete="off"></div>
+        <div class="field"><label for="oValue">قيمة الطلب (د.ك)</label><input id="oValue" type="number" inputmode="decimal" step="0.001" min="0" required placeholder="0.000"></div>
+        <div class="field"><label for="oPay">الدفع</label><select id="oPay"><option>كاش</option><option>كي نت</option><option>مدفوع أونلاين</option></select></div>
+        <div class="field"><label for="oNo">رقم الطلب (اختياري)</label><input id="oNo" inputmode="numeric" placeholder="من الفاتورة"></div>
+        <button class="btn primary big" type="submit" id="btnReceive">استلمت الطلب</button>
+        <div class="note">يُسجَّل الوقت وموقعك تلقائياً، ويبدأ التتبع لين تسلّم آخر طلب معك. خلّ الصفحة مفتوحة والجوال على الشاحن.</div>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>طلباتي اليوم</h2>
+      <div class="tally" id="myTally"></div>
+      <div class="list" id="myOrders"></div>
+    </div>
+  </section>
+
+  <!-- MANAGER -->
+  <section id="scrManager" hidden style="display:flex;flex-direction:column;gap:16px">
+    <div class="grid2">
+      <div class="panel" style="padding:10px">
+        <div id="map"></div>
+      </div>
+      <div class="panel">
+        <h2>السايقون الآن</h2>
+        <div id="liveList"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="row">
+        <div class="field" style="flex:0 1 190px"><label for="mDay">اليوم</label><input id="mDay" type="date"></div>
+        <div class="field" style="flex:0 1 220px"><label for="mDriver">السايق</label><select id="mDriver"><option value="">كل السايقين</option></select></div>
+        <div style="flex:1"></div>
+        <button class="btn" id="btnCsv" type="button">تصدير Excel (CSV)</button>
+      </div>
+      <div class="tally" id="mTally"></div>
+    </div>
+
+    <div class="panel">
+      <h2>ملخص السايقين</h2>
+      <div class="tablebox"><table>
+        <thead><tr><th>السايق</th><th>الطلبات</th><th>القيمة (د.ك)</th><th>كاش يسلّمه</th><th>تم التسليم</th><th>في الطريق</th><th>متوسط التوصيل</th></tr></thead>
+        <tbody id="perDriver"></tbody><tfoot id="perDriverFoot"></tfoot>
+      </table></div>
+    </div>
+
+    <div class="panel">
+      <h2>كل الطلبات</h2>
+      <div class="tablebox"><table>
+        <thead><tr><th>الاستلام</th><th>السايق</th><th>المنطقة</th><th>رقم الطلب</th><th>القيمة</th><th>الدفع</th><th>الحالة</th><th>التسليم</th><th>المدة</th><th>مكان الاستلام</th><th>مكان التسليم</th><th></th></tr></thead>
+        <tbody id="allOrders"></tbody>
+      </table></div>
+    </div>
+
+    <div class="panel">
+      <h2>الحسابات</h2>
+      <p class="note" style="margin:0">السايق يسجّل حسابه من نفس الرابط، ويظهر هنا لتوافق عليه.</p>
+      <div id="userList"></div>
+    </div>
+  </section>
+</div>
+
+<datalist id="areas"></datalist>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+"use strict";
+const AREAS = ["مدينة الكويت","شرق","المرقاب","الصالحية","الدسمة","الشعب","الدعية","بنيد القار","كيفان","الشامية","الروضة","العديلية","الخالدية","المنصورية","القادسية","الفيحاء","النزهة","اليرموك","السرة","قرطبة","الصديق","السلام","حطين","الشهداء","الزهراء","حولي","السالمية","الجابرية","الرميثية","بيان","مشرف","سلوى","البدع","ميدان حولي","مبارك العبدالله","الفروانية","خيطان","جليب الشيوخ","العارضية","الرقعي","الأندلس","الرابية","العمرية","الضجيج","صباح الناصر","الفردوس","الفحيحيل","المنقف","المهبولة","أبو حليفة","الفنطاس","صباح السالم","العدان","القرين","القصور","المسيلة","أبو فطيرة","صبحان","الجهراء"];
+const T = Object.assign({minSeconds:30,minMeters:150,floorSeconds:10}, window.TRACKING||{});
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const kwd = n => (Number(n)||0).toFixed(3);
+const pad = n => String(n).padStart(2,"0");
+const dayOf = ms => { const d=new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const today = () => dayOf(Date.now());
+const tFmt = ms => ms ? new Date(ms).toLocaleTimeString("ar-u-nu-latn",{hour:"numeric",minute:"2-digit"}) : "—";
+const dFmt = ms => new Date(ms).toLocaleDateString("ar-u-nu-latn",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+const mins = o => o.deliveredAt && o.receivedAt ? Math.round((o.deliveredAt-o.receivedAt)/60000) : null;
+const durFmt = m => m==null ? "—" : (m<60 ? `${m} د` : `${Math.floor(m/60)} س ${m%60} د`);
+const ago = ms => { const s=Math.max(0,Math.round((Date.now()-ms)/1000)); return s<60?"الآن":s<3600?`قبل ${Math.round(s/60)} د`:`قبل ${Math.floor(s/3600)} س`; };
+const gmaps = p => p && p.lat!=null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : "";
+const dist = (a,b) => { const R=6371000,r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dg=r(b.lng-a.lng); const h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dg/2)**2; return 2*R*Math.asin(Math.sqrt(h)); };
+function toast(m){ const t=$("#toast"); t.textContent=m; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2800); }
+function armed(btn,label,fn){ if(btn.dataset.armed){ delete btn.dataset.armed; fn(); return; } const old=btn.textContent; btn.dataset.armed="1"; btn.textContent=label; setTimeout(()=>{ if(btn.dataset.armed){ delete btn.dataset.armed; btn.textContent=old; } },3000); }
+const show = id => ["#scrAuth","#scrPending","#scrDriver","#scrManager"].forEach(s => $(s).hidden = s!==id);
+
+$("#areas").innerHTML = [...new Set(AREAS)].map(a=>`<option value="${esc(a)}">`).join("");
+$("#todayLabel").textContent = dFmt(Date.now());
+
+const cfg = window.FIREBASE_CONFIG || {};
+if (!cfg.apiKey || cfg.apiKey === "PASTE_HERE") { $("#cfgMissing").hidden = false; return; }
+firebase.initializeApp(cfg);
+const auth = firebase.auth(), fs = firebase.firestore();
+const serverTs = () => firebase.firestore.FieldValue.serverTimestamp();
+
+let uid=null, me=null, unsubs=[];
+const stopAll = () => { unsubs.forEach(u=>{ try{u();}catch{} }); unsubs=[]; };
+
+// ================= AUTH =================
+$("#toReg").onclick = () => { $("#loginForm").hidden=true; $("#regForm").hidden=false; };
+$("#toLogin").onclick = () => { $("#regForm").hidden=true; $("#loginForm").hidden=false; };
+const authMsg = e => ({ "auth/invalid-credential":"الإيميل أو كلمة السر غلط","auth/wrong-password":"كلمة السر غلط","auth/user-not-found":"ما في حساب بهذا الإيميل","auth/email-already-in-use":"هذا الإيميل مسجّل، ادخل بدل التسجيل","auth/weak-password":"كلمة السر قصيرة","auth/invalid-email":"الإيميل غير صحيح","auth/network-request-failed":"تأكد من الإنترنت"})[e?.code] || "صار خطأ، حاول مرة ثانية";
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault(); $("#lErr").textContent="";
+  try { await auth.signInWithEmailAndPassword($("#lEmail").value.trim(), $("#lPass").value); }
+  catch(err){ $("#lErr").textContent = authMsg(err); }
+});
+$("#regForm").addEventListener("submit", async e => {
+  e.preventDefault(); $("#rErr").textContent="";
+  const name=$("#rName").value.trim(); if(!name) return;
+  try {
+    const cred = await auth.createUserWithEmailAndPassword($("#rEmail").value.trim(), $("#rPass").value);
+    await fs.doc("users/"+cred.user.uid).set({name, email:cred.user.email, role:"pending", createdAt:Date.now()});
+  } catch(err){ $("#rErr").textContent = authMsg(err); }
+});
+$("#btnLogout").onclick = async () => { await stopTracking(); stopAll(); auth.signOut(); };
+
+auth.onAuthStateChanged(u => {
+  stopAll(); uid = u?.uid || null; me = null;
+  $("#whoBox").hidden = !u;
+  if(!u){ show("#scrAuth"); return; }
+  unsubs.push(fs.doc("users/"+uid).onSnapshot(snap => {
+    const prev = me?.role; me = snap.exists ? snap.data() : null;
+    $("#whoName").textContent = me?.name || u.email;
+    if (prev === me?.role && prev) return;      // same role: nothing to rebuild
+    const role = me?.role;
+    if (role === "manager") startManager();
+    else if (role === "driver") startDriver();
+    else { stopTracking(); show("#scrPending"); }
+  }, () => show("#scrPending")));
+});
+
+// ================= DRIVER =================
+let myOrders=[], watchId=null, lastSent=null, wake=null, trackErr="";
+const openOrders = () => myOrders.filter(o=>o.status==="out");
+
+function getPos(){
+  return new Promise((res,rej)=>{
+    if(!navigator.geolocation) return rej({code:-1});
+    navigator.geolocation.getCurrentPosition(res, rej, {enableHighAccuracy:true, timeout:15000, maximumAge:10000});
+  });
+}
+const pt = p => ({lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6), acc:Math.round(p.coords.accuracy||0)});
+const geoMsg = e => e?.code===1 ? "لازم تسمح للموقع: من إعدادات المتصفح ← الموقع ← سماح، ثم أعد المحاولة"
+  : e?.code===-1 ? "جوالك ما يدعم تحديد الموقع" : "ما قدرنا نحدد موقعك. تأكد إن GPS شغال وحاول مرة ثانية";
+
+async function keepAwake(){
+  try { if("wakeLock" in navigator && !wake && document.visibilityState==="visible"){ wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release",()=>{ wake=null; }); } } catch {}
+}
+document.addEventListener("visibilitychange", () => { if(watchId!=null && document.visibilityState==="visible"){ keepAwake(); } });
+
+async function sendLoc(p, force){
+  const c = pt(p), now = Date.now();
+  if(!force && lastSent){
+    const dt = (now-lastSent.t)/1000, d = dist(lastSent,c);
+    if(dt < T.floorSeconds) return;
+    if(dt < T.minSeconds && d < T.minMeters) return;
+  }
+  lastSent = {...c, t:now};
+  try{
+    await fs.doc("locations/"+uid).set({...c, speed: p.coords.speed!=null ? Math.round(p.coords.speed*3.6) : null,
+      name: me?.name||"", ts: now, serverTs: serverTs(), active: true, open: openOrders().length});
+    trackErr=""; renderTrack();
+  }catch{ trackErr="ما وصل الموقع — تأكد من الإنترنت"; renderTrack(); }
+}
+function startTracking(){
+  if(watchId!=null || !navigator.geolocation) return;
+  watchId = navigator.geolocation.watchPosition(p=>sendLoc(p,false), e=>{ trackErr=geoMsg(e); renderTrack(); },
+    {enableHighAccuracy:true, maximumAge:5000, timeout:30000});
+  keepAwake(); renderTrack();
+}
+async function stopTracking(){
+  const was = watchId!=null;
+  if(was) navigator.geolocation.clearWatch(watchId);
+  watchId=null; lastSent=null;
+  try{ await wake?.release(); }catch{} wake=null;
+  if(was && uid){ try{ await fs.doc("locations/"+uid).set({active:false, open:0, ts:Date.now()},{merge:true}); }catch{} }
+  renderTrack();
+}
+function renderTrack(){
+  const bar=$("#trackBar"), txt=$("#trackText");
+  if(trackErr){ bar.className="track-bar bad"; txt.textContent=trackErr; return; }
+  if(watchId!=null){ bar.className="track-bar on"; txt.textContent = `التتبع شغال — ${openOrders().length} طلب معك` + (lastSent?` · آخر تحديث ${tFmt(lastSent.t)}`:""); }
+  else { bar.className="track-bar off"; txt.textContent="التتبع متوقف — يبدأ لما تستلم طلب"; }
+}
+
+function startDriver(){
+  show("#scrDriver");
+  let curDay = today();
+  const sub = () => fs.collection("orders").where("driverId","==",uid).where("day","==",curDay)
+    .onSnapshot(s => {
+      myOrders = s.docs.map(d=>({id:d.id,...d.data()}));
+      renderMine();
+      if(openOrders().length>0) startTracking(); else if(!s.metadata.fromCache) stopTracking();
+    }, err => { console.error(err); $("#myOrders").innerHTML=`<div class="empty">ما قدرنا نجيب الطلبات. حدّث الصفحة.</div>`; });
+  let un = sub();
+  unsubs.push(()=>un());
+  const iv = setInterval(()=>{ if(today()!==curDay){ curDay=today(); un(); un=sub(); $("#todayLabel").textContent=dFmt(Date.now()); } }, 60000);
+  unsubs.push(()=>clearInterval(iv));
+}
+
+function tallyHTML(list, full){
+  const live=list.filter(o=>o.status!=="cancelled");
+  const val=live.reduce((s,o)=>s+(+o.value||0),0);
+  const cash=live.filter(o=>o.pay==="كاش").reduce((s,o)=>s+(+o.value||0),0);
+  const done=live.filter(o=>o.status==="delivered"), out=live.filter(o=>o.status==="out").length;
+  const ms=done.map(mins).filter(m=>m!=null), avg=ms.length?Math.round(ms.reduce((a,b)=>a+b,0)/ms.length):null;
+  return `<div class="stat lead"><b>${live.length}</b><span>عدد الطلبات</span></div>
+    <div class="stat lead"><b>${kwd(val)}</b><span>القيمة (د.ك)</span></div>
+    <div class="stat"><b>${kwd(cash)}</b><span>كاش للتسليم</span></div>
+    <div class="stat"><b>${done.length}</b><span>تم التسليم</span></div>
+    <div class="stat"><b>${out}</b><span>في الطريق</span></div>
+    ${full?`<div class="stat"><b>${durFmt(avg)}</b><span>متوسط التوصيل</span></div>`:""}`;
+}
+const pill = s => s==="delivered"?`<span class="pill done">تم التسليم</span>`:s==="cancelled"?`<span class="pill cancel">ملغي</span>`:`<span class="pill out">في الطريق</span>`;
+
+function renderMine(){
+  $("#myTally").innerHTML = tallyHTML(myOrders,false);
+  const list=[...myOrders].sort((a,b)=>b.receivedAt-a.receivedAt);
+  $("#myOrders").innerHTML = list.length ? list.map(o=>`
+    <div class="order" data-id="${esc(o.id)}">
+      <div class="what"><span class="area">${esc(o.area)}</span><span class="val">${kwd(o.value)} د.ك</span>${pill(o.status)}</div>
+      <div class="acts">${o.status==="out"?`<button class="btn small primary done" type="button">تم التسليم</button><button class="btn small ghost cancel" type="button">إلغاء</button>`:""}</div>
+      <div class="meta"><span>استلام ${tFmt(o.receivedAt)}</span>${o.deliveredAt?`<span>تسليم ${tFmt(o.deliveredAt)} · ${durFmt(mins(o))}</span>`:""}<span>${esc(o.pay)}</span>${o.orderNo?`<span>#${esc(o.orderNo)}</span>`:""}</div>
+    </div>`).join("") : `<div class="empty">ما في طلبات اليوم. سجّل أول طلب لما تستلمه.</div>`;
+  renderTrack();
+}
+
+$("#newOrder").addEventListener("submit", async e => {
+  e.preventDefault();
+  const area=$("#oArea").value.trim(), value=Math.round(parseFloat($("#oValue").value)*1000)/1000;
+  if(!area || !(value>=0)) return toast("أكمل المنطقة والقيمة");
+  const btn=$("#btnReceive"); btn.disabled=true; btn.textContent="جاري تحديد موقعك…";
+  let pos;
+  try { pos = await getPos(); }
+  catch(err){ trackErr=geoMsg(err); renderTrack(); toast(trackErr); btn.disabled=false; btn.textContent="استلمت الطلب"; return; }
+  trackErr="";
+  const now=Date.now();
+  try{
+    await fs.collection("orders").add({driverId:uid, driverName:me?.name||"", area, value, pay:$("#oPay").value,
+      orderNo:$("#oNo").value.trim(), status:"out", receivedAt:now, day:dayOf(now), recvLoc:pt(pos), createdAt:serverTs()});
+    $("#oArea").value=""; $("#oValue").value=""; $("#oNo").value="";
+    sendLoc(pos,true); startTracking();
+    toast("سُجّل الاستلام "+tFmt(now)+" وبدأ التتبع");
+  }catch(err){ console.error(err); toast("ما انحفظ الطلب — تأكد من الإنترنت"); }
+  btn.disabled=false; btn.textContent="استلمت الطلب";
+});
+
+$("#myOrders").addEventListener("click", async e => {
+  const card=e.target.closest(".order"); if(!card) return;
+  const ref=fs.doc("orders/"+card.dataset.id);
+  if(e.target.classList.contains("done")){
+    e.target.disabled=true; e.target.textContent="جاري…";
+    let loc=null; try{ loc=pt(await getPos()); }catch{}
+    try{ await ref.update({status:"delivered", deliveredAt:Date.now(), delivLoc:loc}); toast("تم تسجيل التسليم"); }
+    catch{ e.target.disabled=false; e.target.textContent="تم التسليم"; toast("ما انحفظ — تأكد من الإنترنت"); }
+  } else if(e.target.classList.contains("cancel")){
+    armed(e.target,"تأكيد الإلغاء", async()=>{ try{ await ref.update({status:"cancelled", cancelledAt:Date.now()}); toast("أُلغي الطلب"); }catch{ toast("تعذّر الإلغاء"); } });
+  }
+});
+
+// ================= MANAGER =================
+let map=null, markers={}, locs={}, users=[], mgrOrders=[], delivLayer=null;
+const KUWAIT=[29.33,47.99];
+const userName = id => users.find(u=>u.id===id)?.name || mgrOrders.find(o=>o.driverId===id)?.driverName || "سايق";
+const liveState = l => !l ? "idle" : (l.active && Date.now()-l.ts < 3*60000) ? "live" : l.active ? "stale" : "idle";
+const stateColor = s => getComputedStyle(document.documentElement).getPropertyValue(s==="live"?"--ok":s==="stale"?"--sun":"--idle").trim();
+
+function startManager(){
+  show("#scrManager");
+  if(!map && window.L){
+    map = L.map("map",{zoomControl:true}).setView(KUWAIT,11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19, attribution:"© OpenStreetMap"}).addTo(map);
+    delivLayer = L.layerGroup().addTo(map);
+  }
+  setTimeout(()=>map?.invalidateSize(),50);
+  $("#mDay").value = $("#mDay").value || today();
+
+  unsubs.push(fs.collection("users").onSnapshot(s=>{ users=s.docs.map(d=>({id:d.id,...d.data()})); renderUsers(); renderDriverFilter(); renderLive(); renderManager(); }));
+  unsubs.push(fs.collection("locations").onSnapshot(s=>{ locs={}; s.docs.forEach(d=>locs[d.id]=d.data()); renderMarkers(); renderLive(); }));
+  subscribeDay();
+  const iv=setInterval(()=>{ renderMarkers(); renderLive(); },30000);
+  unsubs.push(()=>clearInterval(iv));
+}
+let unDay=null;
+function subscribeDay(){
+  unDay?.();
+  unDay = fs.collection("orders").where("day","==",$("#mDay").value||today())
+    .onSnapshot(s=>{ mgrOrders=s.docs.map(d=>({id:d.id,...d.data()})); renderManager(); renderLive(); }, err=>console.error(err));
+  unsubs.push(()=>{ unDay?.(); unDay=null; });
+}
+$("#mDay").addEventListener("change", subscribeDay);
+$("#mDriver").addEventListener("change", renderManager);
+
+function renderMarkers(){
+  if(!map) return;
+  Object.keys(markers).forEach(id=>{ if(!locs[id]){ map.removeLayer(markers[id]); delete markers[id]; } });
+  Object.entries(locs).forEach(([id,l])=>{
+    if(l.lat==null) return;
+    const st=liveState(l); if(st==="idle" && Date.now()-l.ts > 12*3600000){ if(markers[id]){ map.removeLayer(markers[id]); delete markers[id]; } return; }
+    const c=stateColor(st);
+    const html=`<div style="--c:${c}"><div class="marker-pin"></div><div class="marker-label">${esc(userName(id))}</div></div>`;
+    const icon=L.divIcon({html, className:"", iconSize:[0,0]});
+    const pop=`<b>${esc(userName(id))}</b><br>${st==="live"?"مباشر":st==="stale"?"توقف التحديث":"خارج التوصيل"} · ${ago(l.ts)}${l.speed!=null?`<br>السرعة ${l.speed} كم/س`:""}<br>طلبات معه: ${l.open||0}<br><a href="${gmaps(l)}" target="_blank" rel="noopener">افتح في خرائط Google</a>`;
+    if(markers[id]){ markers[id].setLatLng([l.lat,l.lng]).setIcon(icon).setPopupContent(pop); }
+    else markers[id]=L.marker([l.lat,l.lng],{icon}).bindPopup(pop).addTo(map);
+  });
+}
+
+function renderLive(){
+  const ids=[...new Set([...users.filter(u=>u.role==="driver").map(u=>u.id), ...Object.keys(locs)])];
+  const rows=ids.map(id=>{ const l=locs[id], st=liveState(l); const open=mgrOrders.filter(o=>o.driverId===id&&o.status==="out"); return {id,l,st,open}; })
+    .sort((a,b)=>({live:0,stale:1,idle:2}[a.st]-{live:0,stale:1,idle:2}[b.st]));
+  $("#liveList").innerHTML = rows.length ? rows.map(r=>`
+    <div class="drv" data-id="${esc(r.id)}">
+      <div><b>${esc(userName(r.id))}</b><span class="note">${r.open.length?`معه ${r.open.length}: ${esc(r.open.map(o=>o.area).join("، "))}`:"ما معه طلبات"}${r.l?` · ${ago(r.l.ts)}`:""}</span></div>
+      ${r.st==="live"?`<span class="pill done">مباشر</span>`:r.st==="stale"?`<span class="pill out">توقف التحديث</span>`:`<span class="pill idle">خارج التوصيل</span>`}
+    </div>`).join("") : `<div class="empty">ما في سايقين بعد. أعطهم رابط الصفحة ليسجّلوا، ثم وافق عليهم من «الحسابات».</div>`;
+}
+$("#liveList").addEventListener("click", e=>{
+  const row=e.target.closest(".drv"); if(!row||!map) return;
+  const l=locs[row.dataset.id]; if(!l||l.lat==null) return toast("ما في موقع لهذا السايق بعد");
+  map.flyTo([l.lat,l.lng],15); markers[row.dataset.id]?.openPopup();
+  document.getElementById("map").scrollIntoView({behavior:"smooth",block:"center"});
+});
+
+function renderDriverFilter(){
+  const m=$("#mDriver"), v=m.value;
+  m.innerHTML=`<option value="">كل السايقين</option>`+users.filter(u=>u.role==="driver"||u.role==="disabled").map(u=>`<option value="${esc(u.id)}">${esc(u.name)}</option>`).join("");
+  m.value=v;
+}
+
+function renderManager(){
+  const f=$("#mDriver").value;
+  const list=mgrOrders.filter(o=>!f||o.driverId===f).sort((a,b)=>b.receivedAt-a.receivedAt);
+  $("#mTally").innerHTML=tallyHTML(list,true);
+  const ids=[...new Set(mgrOrders.map(o=>o.driverId))].filter(id=>!f||id===f);
+  const rows=ids.map(id=>{
+    const mine=mgrOrders.filter(o=>o.driverId===id&&o.status!=="cancelled"), ms=mine.map(mins).filter(m=>m!=null);
+    return {id,n:mine.length,v:mine.reduce((s,o)=>s+(+o.value||0),0),c:mine.filter(o=>o.pay==="كاش").reduce((s,o)=>s+(+o.value||0),0),
+      done:mine.filter(o=>o.status==="delivered").length,out:mine.filter(o=>o.status==="out").length,avg:ms.length?Math.round(ms.reduce((a,b)=>a+b,0)/ms.length):null};
+  }).sort((a,b)=>b.n-a.n);
+  $("#perDriver").innerHTML = rows.length ? rows.map(r=>`<tr><td><b>${esc(userName(r.id))}</b></td><td>${r.n}</td><td>${kwd(r.v)}</td><td>${kwd(r.c)}</td><td>${r.done}</td><td>${r.out?`<span class="pill out">${r.out}</span>`:"0"}</td><td>${durFmt(r.avg)}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="note" style="text-align:center">ما في طلبات في هذا اليوم.</td></tr>`;
+  const S=rows.reduce((a,r)=>({n:a.n+r.n,v:a.v+r.v,c:a.c+r.c,d:a.d+r.done,o:a.o+r.out}),{n:0,v:0,c:0,d:0,o:0});
+  $("#perDriverFoot").innerHTML = rows.length>1?`<tr><td>الإجمالي</td><td>${S.n}</td><td>${kwd(S.v)}</td><td>${kwd(S.c)}</td><td>${S.d}</td><td>${S.o}</td><td></td></tr>`:"";
+  const ll = p => p ? `<a href="${gmaps(p)}" target="_blank" rel="noopener">خريطة ↗</a>` : "—";
+  $("#allOrders").innerHTML = list.length ? list.map(o=>`<tr data-id="${esc(o.id)}"><td>${tFmt(o.receivedAt)}</td><td>${esc(userName(o.driverId))}</td><td>${esc(o.area)}</td><td>${esc(o.orderNo||"—")}</td><td>${kwd(o.value)}</td><td>${esc(o.pay)}</td><td>${pill(o.status)}</td><td>${tFmt(o.deliveredAt)}</td><td>${durFmt(mins(o))}</td><td>${ll(o.recvLoc)}</td><td>${ll(o.delivLoc)}</td><td><button class="btn small ghost warn del" type="button">حذف</button></td></tr>`).join("")
+    : `<tr><td colspan="12" class="note" style="text-align:center">ما في طلبات في هذا اليوم.</td></tr>`;
+  if(delivLayer){
+    delivLayer.clearLayers();
+    list.filter(o=>o.delivLoc).forEach(o=>L.circleMarker([o.delivLoc.lat,o.delivLoc.lng],{radius:6,color:stateColor("idle"),fillOpacity:.6,weight:1})
+      .bindPopup(`تسليم ${esc(o.area)} · ${tFmt(o.deliveredAt)}<br>${esc(userName(o.driverId))} · ${kwd(o.value)} د.ك`).addTo(delivLayer));
+  }
+}
+$("#allOrders").addEventListener("click", e=>{
+  if(!e.target.classList.contains("del")) return;
+  const id=e.target.closest("tr").dataset.id;
+  armed(e.target,"تأكيد الحذف", async()=>{ try{ await fs.doc("orders/"+id).delete(); toast("حُذف الطلب"); }catch{ toast("تعذّر الحذف"); } });
+});
+
+function renderUsers(){
+  const order={pending:0,driver:1,manager:2,disabled:3};
+  const list=[...users].sort((a,b)=>(order[a.role]??9)-(order[b.role]??9));
+  const label={pending:`<span class="pill out">بانتظار الموافقة</span>`,driver:`<span class="pill done">سايق</span>`,manager:`<span class="pill done">مدير</span>`,disabled:`<span class="pill cancel">موقوف</span>`};
+  $("#userList").innerHTML = list.length ? list.map(u=>`
+    <div class="user-row" data-id="${esc(u.id)}">
+      <div><b>${esc(u.name)}</b> ${label[u.role]||""}<div class="note">${esc(u.email||"")}</div></div>
+      <div class="row">${u.id===uid?"":u.role==="pending"?`<button class="btn small primary approve" type="button">موافقة كسايق</button><button class="btn small ghost warn disable" type="button">رفض</button>`
+        :u.role==="driver"?`<button class="btn small ghost warn disable" type="button">إيقاف</button>`
+        :u.role==="disabled"?`<button class="btn small approve" type="button">إعادة تفعيل</button>`:""}</div>
+    </div>`).join("") : `<div class="empty">ما في حسابات.</div>`;
+}
+$("#userList").addEventListener("click", async e=>{
+  const row=e.target.closest(".user-row"); if(!row) return;
+  const ref=fs.doc("users/"+row.dataset.id);
+  try{
+    if(e.target.classList.contains("approve")){ await ref.update({role:"driver"}); toast("تمت الموافقة"); }
+    else if(e.target.classList.contains("disable")){ await ref.update({role:"disabled"}); toast("تم الإيقاف"); }
+  }catch{ toast("ما انحفظ التعديل"); }
+});
+
+$("#btnCsv").addEventListener("click", ()=>{
+  const f=$("#mDriver").value, list=mgrOrders.filter(o=>!f||o.driverId===f).sort((a,b)=>a.receivedAt-b.receivedAt);
+  const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const head=["التاريخ","وقت الاستلام","السايق","المنطقة","رقم الطلب","القيمة","الدفع","الحالة","وقت التسليم","المدة بالدقائق","موقع الاستلام","موقع التسليم"];
+  const lines=[head.map(q).join(",")].concat(list.map(o=>[o.day,tFmt(o.receivedAt),userName(o.driverId),o.area,o.orderNo,kwd(o.value),o.pay,
+    o.status==="delivered"?"تم التسليم":o.status==="cancelled"?"ملغي":"في الطريق",o.deliveredAt?tFmt(o.deliveredAt):"",mins(o)??"",gmaps(o.recvLoc),gmaps(o.delivLoc)].map(q).join(",")));
+  const blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`توصيل-${$("#mDay").value}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+});
+})();
+</script>
+</body>
+</html>
