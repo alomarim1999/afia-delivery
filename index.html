@@ -420,6 +420,32 @@ const stateColor = s => getComputedStyle(document.documentElement).getPropertyVa
 const statePill = s => s==="fresh"?`<span class="pill done">حديث</span>`:s==="recent"?`<span class="pill out">من شوي</span>`:s==="old"?`<span class="pill idle">قديم</span>`:`<span class="pill idle">ما في موقع</span>`;
 let selectedDriver = null;
 
+function startManager(){
+  show("#scrManager");
+  if(!map && window.L){
+    map = L.map("map",{zoomControl:true}).setView(KUWAIT,11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19, attribution:"© OpenStreetMap"}).addTo(map);
+    delivLayer = L.layerGroup().addTo(map);
+  }
+  setTimeout(()=>map?.invalidateSize(),50);
+  $("#mDay").value = $("#mDay").value || today();
+
+  unsubs.push(fs.collection("users").onSnapshot(s=>{ users=s.docs.map(d=>({id:d.id,...d.data()})); renderUsers(); renderDriverFilter(); renderMarkers(); renderLive(); renderManager(); }));
+  unsubs.push(fs.collection("locations").onSnapshot(s=>{ locs={}; s.docs.forEach(d=>locs[d.id]=d.data()); renderMarkers(); renderLive(); }));
+  subscribeDay();
+  const iv=setInterval(()=>{ renderMarkers(); renderLive(); },30000);
+  unsubs.push(()=>clearInterval(iv));
+}
+let unDay=null;
+function subscribeDay(){
+  unDay?.();
+  unDay = fs.collection("orders").where("day","==",$("#mDay").value||today())
+    .onSnapshot(s=>{ mgrOrders=s.docs.map(d=>({id:d.id,...d.data()})); renderManager(); renderLive(); }, err=>console.error(err));
+  unsubs.push(()=>{ unDay?.(); unDay=null; });
+}
+$("#mDay").addEventListener("change", subscribeDay);
+$("#mDriver").addEventListener("change", renderManager);
+
 function renderMarkers(){
   if(!map) return;
   Object.keys(markers).forEach(id=>{ if(!locs[id]){ map.removeLayer(markers[id]); delete markers[id]; } });
