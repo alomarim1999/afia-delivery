@@ -85,6 +85,9 @@ td a{color:var(--accent);font-weight:600;text-decoration:none}
 @media (max-width:600px){#map{height:360px}}
 .drv{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:10px;border-bottom:1px solid var(--line);cursor:pointer}
 .drv:last-child{border-bottom:0}
+.drv.sel{background:var(--accent-soft);border-radius:10px;padding-inline:10px}
+.detail{border:1px solid var(--accent);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+a.btn{text-decoration:none;display:inline-block}
 .drv b{display:block}
 .marker-label{background:var(--surface);color:var(--ink);border:2px solid var(--c);border-radius:999px;padding:2px 10px;font:600 13px var(--body);white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25);transform:translate(-50%,-130%);position:absolute}
 .marker-pin{width:16px;height:16px;border-radius:50%;background:var(--c);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);position:absolute;transform:translate(-50%,-50%)}
@@ -136,14 +139,14 @@ td a{color:var(--accent);font-weight:600;text-decoration:none}
   <!-- DRIVER -->
   <section id="scrDriver" class="grid2" hidden>
     <div class="panel">
-      <div class="track-bar off" id="trackBar"><span class="dot"></span><span id="trackText">التتبع متوقف — يبدأ لما تستلم طلب</span></div>
+      <div class="track-bar off" id="trackBar"><span class="dot"></span><span id="trackText">موقعك يتسجّل تلقائياً عند الاستلام والتسليم</span></div>
       <form id="newOrder" class="row">
         <div class="field"><label for="oArea">المنطقة</label><input id="oArea" list="areas" required placeholder="مثال: السالمية" autocomplete="off"></div>
         <div class="field"><label for="oValue">قيمة الطلب (د.ك)</label><input id="oValue" type="number" inputmode="decimal" step="0.001" min="0" required placeholder="0.000"></div>
         <div class="field"><label for="oPay">الدفع</label><select id="oPay"><option>كاش</option><option>كي نت</option><option>مدفوع أونلاين</option></select></div>
         <div class="field"><label for="oNo">رقم الطلب (اختياري)</label><input id="oNo" inputmode="numeric" placeholder="من الفاتورة"></div>
         <button class="btn primary big" type="submit" id="btnReceive">استلمت الطلب</button>
-        <div class="note">يُسجَّل الوقت وموقعك تلقائياً، ويبدأ التتبع لين تسلّم آخر طلب معك. خلّ الصفحة مفتوحة والجوال على الشاحن.</div>
+        <div class="note">يُسجَّل الوقت وموقعك تلقائياً عند الاستلام وعند التسليم. تقدر تسكّر الصفحة بعدها عادي.</div>
       </form>
     </div>
     <div class="panel">
@@ -160,7 +163,8 @@ td a{color:var(--accent);font-weight:600;text-decoration:none}
         <div id="map"></div>
       </div>
       <div class="panel">
-        <h2>السايقون الآن</h2>
+        <h2>السايقون</h2>
+        <div class="detail" id="drvDetail" hidden></div>
         <div id="liveList"></div>
       </div>
     </div>
@@ -276,7 +280,7 @@ auth.onAuthStateChanged(u => {
 });
 
 // ================= DRIVER =================
-let myOrders=[], watchId=null, lastSent=null, wake=null, trackErr="";
+let myOrders=[], watchId=null, lastSent=null, trackErr="";
 const openOrders = () => myOrders.filter(o=>o.status==="out");
 
 function getPos(){
@@ -289,12 +293,8 @@ const pt = p => ({lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toF
 const geoMsg = e => e?.code===1 ? "لازم تسمح للموقع: من إعدادات المتصفح ← الموقع ← سماح، ثم أعد المحاولة"
   : e?.code===-1 ? "جوالك ما يدعم تحديد الموقع" : "ما قدرنا نحدد موقعك. تأكد إن GPS شغال وحاول مرة ثانية";
 
-async function keepAwake(){
-  try { if("wakeLock" in navigator && !wake && document.visibilityState==="visible"){ wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release",()=>{ wake=null; }); } } catch {}
-}
-document.addEventListener("visibilitychange", () => { if(watchId!=null && document.visibilityState==="visible"){ keepAwake(); } });
-
-async function sendLoc(p, force){
+// يحفظ "آخر مكان معروف" للسايق مع سبب التحديث (استلام / تسليم / فتح الصفحة / متابعة)
+async function sendLoc(p, force, event){
   const c = pt(p), now = Date.now();
   if(!force && lastSent){
     const dt = (now-lastSent.t)/1000, d = dist(lastSent,c);
@@ -304,39 +304,43 @@ async function sendLoc(p, force){
   lastSent = {...c, t:now};
   try{
     await fs.doc("locations/"+uid).set({...c, speed: p.coords.speed!=null ? Math.round(p.coords.speed*3.6) : null,
-      name: me?.name||"", ts: now, serverTs: serverTs(), active: true, open: openOrders().length});
+      name: me?.name||"", ts: now, serverTs: serverTs(), event: event||"متابعة", open: openOrders().length});
     trackErr=""; renderTrack();
   }catch{ trackErr="ما وصل الموقع — تأكد من الإنترنت"; renderTrack(); }
 }
-function startTracking(){
+// متابعة إضافية فقط والصفحة مفتوحة ومعه طلبات — مو شرط
+function startWatch(){
   if(watchId!=null || !navigator.geolocation) return;
-  watchId = navigator.geolocation.watchPosition(p=>sendLoc(p,false), e=>{ trackErr=geoMsg(e); renderTrack(); },
-    {enableHighAccuracy:true, maximumAge:5000, timeout:30000});
-  keepAwake(); renderTrack();
-}
-async function stopTracking(){
-  const was = watchId!=null;
-  if(was) navigator.geolocation.clearWatch(watchId);
-  watchId=null; lastSent=null;
-  try{ await wake?.release(); }catch{} wake=null;
-  if(was && uid){ try{ await fs.doc("locations/"+uid).set({active:false, open:0, ts:Date.now()},{merge:true}); }catch{} }
+  watchId = navigator.geolocation.watchPosition(p=>sendLoc(p,false,"متابعة"), ()=>{}, {enableHighAccuracy:true, maximumAge:5000, timeout:30000});
   renderTrack();
 }
+function stopWatch(){ if(watchId!=null) navigator.geolocation.clearWatch(watchId); watchId=null; renderTrack(); }
+const stopTracking = async () => stopWatch();
+async function pingOnOpen(){
+  try{
+    const st = navigator.permissions ? await navigator.permissions.query({name:"geolocation"}) : null;
+    if(st && st.state !== "granted") return;          // لا نزعج السايق بطلب إذن عند الفتح
+    sendLoc(await getPos(), true, "فتح الصفحة");
+  }catch{}
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState==="visible" && me?.role==="driver") pingOnOpen(); });
 function renderTrack(){
   const bar=$("#trackBar"), txt=$("#trackText");
   if(trackErr){ bar.className="track-bar bad"; txt.textContent=trackErr; return; }
-  if(watchId!=null){ bar.className="track-bar on"; txt.textContent = `التتبع شغال — ${openOrders().length} طلب معك` + (lastSent?` · آخر تحديث ${tFmt(lastSent.t)}`:""); }
-  else { bar.className="track-bar off"; txt.textContent="التتبع متوقف — يبدأ لما تستلم طلب"; }
+  const last = lastSent ? ` · آخر تحديث ${tFmt(lastSent.t)}` : "";
+  if(openOrders().length){ bar.className="track-bar on"; txt.textContent = `معك ${openOrders().length} طلب — موقعك يتسجّل عند الاستلام والتسليم${last}`; }
+  else { bar.className="track-bar off"; txt.textContent = `موقعك يتسجّل تلقائياً عند الاستلام والتسليم${last}`; }
 }
 
 function startDriver(){
   show("#scrDriver");
+  pingOnOpen();
   let curDay = today();
   const sub = () => fs.collection("orders").where("driverId","==",uid).where("day","==",curDay)
     .onSnapshot(s => {
       myOrders = s.docs.map(d=>({id:d.id,...d.data()}));
       renderMine();
-      if(openOrders().length>0) startTracking(); else if(!s.metadata.fromCache) stopTracking();
+      if(openOrders().length>0) startWatch(); else if(!s.metadata.fromCache) stopWatch();
     }, err => { console.error(err); $("#myOrders").innerHTML=`<div class="empty">ما قدرنا نجيب الطلبات. حدّث الصفحة.</div>`; });
   let un = sub();
   unsubs.push(()=>un());
@@ -385,8 +389,8 @@ $("#newOrder").addEventListener("submit", async e => {
     await fs.collection("orders").add({driverId:uid, driverName:me?.name||"", area, value, pay:$("#oPay").value,
       orderNo:$("#oNo").value.trim(), status:"out", receivedAt:now, day:dayOf(now), recvLoc:pt(pos), createdAt:serverTs()});
     $("#oArea").value=""; $("#oValue").value=""; $("#oNo").value="";
-    sendLoc(pos,true); startTracking();
-    toast("سُجّل الاستلام "+tFmt(now)+" وبدأ التتبع");
+    sendLoc(pos,true,"استلام طلب — "+area);
+    toast("سُجّل الاستلام "+tFmt(now)+" مع موقعك");
   }catch(err){ console.error(err); toast("ما انحفظ الطلب — تأكد من الإنترنت"); }
   btn.disabled=false; btn.textContent="استلمت الطلب";
 });
@@ -396,8 +400,10 @@ $("#myOrders").addEventListener("click", async e => {
   const ref=fs.doc("orders/"+card.dataset.id);
   if(e.target.classList.contains("done")){
     e.target.disabled=true; e.target.textContent="جاري…";
-    let loc=null; try{ loc=pt(await getPos()); }catch{}
-    try{ await ref.update({status:"delivered", deliveredAt:Date.now(), delivLoc:loc}); toast("تم تسجيل التسليم"); }
+    let pos=null; try{ pos=await getPos(); }catch{}
+    const area = myOrders.find(o=>o.id===card.dataset.id)?.area || "";
+    try{ await ref.update({status:"delivered", deliveredAt:Date.now(), delivLoc: pos?pt(pos):null}); toast("تم تسجيل التسليم");
+      if(pos) sendLoc(pos,true,"تسليم طلب — "+area); }
     catch{ e.target.disabled=false; e.target.textContent="تم التسليم"; toast("ما انحفظ — تأكد من الإنترنت"); }
   } else if(e.target.classList.contains("cancel")){
     armed(e.target,"تأكيد الإلغاء", async()=>{ try{ await ref.update({status:"cancelled", cancelledAt:Date.now()}); toast("أُلغي الطلب"); }catch{ toast("تعذّر الإلغاء"); } });
@@ -408,66 +414,65 @@ $("#myOrders").addEventListener("click", async e => {
 let map=null, markers={}, locs={}, users=[], mgrOrders=[], delivLayer=null;
 const KUWAIT=[29.33,47.99];
 const userName = id => users.find(u=>u.id===id)?.name || mgrOrders.find(o=>o.driverId===id)?.driverName || "سايق";
-const liveState = l => !l ? "idle" : (l.active && Date.now()-l.ts < 3*60000) ? "live" : l.active ? "stale" : "idle";
-const stateColor = s => getComputedStyle(document.documentElement).getPropertyValue(s==="live"?"--ok":s==="stale"?"--sun":"--idle").trim();
-
-function startManager(){
-  show("#scrManager");
-  if(!map && window.L){
-    map = L.map("map",{zoomControl:true}).setView(KUWAIT,11);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19, attribution:"© OpenStreetMap"}).addTo(map);
-    delivLayer = L.layerGroup().addTo(map);
-  }
-  setTimeout(()=>map?.invalidateSize(),50);
-  $("#mDay").value = $("#mDay").value || today();
-
-  unsubs.push(fs.collection("users").onSnapshot(s=>{ users=s.docs.map(d=>({id:d.id,...d.data()})); renderUsers(); renderDriverFilter(); renderLive(); renderManager(); }));
-  unsubs.push(fs.collection("locations").onSnapshot(s=>{ locs={}; s.docs.forEach(d=>locs[d.id]=d.data()); renderMarkers(); renderLive(); }));
-  subscribeDay();
-  const iv=setInterval(()=>{ renderMarkers(); renderLive(); },30000);
-  unsubs.push(()=>clearInterval(iv));
-}
-let unDay=null;
-function subscribeDay(){
-  unDay?.();
-  unDay = fs.collection("orders").where("day","==",$("#mDay").value||today())
-    .onSnapshot(s=>{ mgrOrders=s.docs.map(d=>({id:d.id,...d.data()})); renderManager(); renderLive(); }, err=>console.error(err));
-  unsubs.push(()=>{ unDay?.(); unDay=null; });
-}
-$("#mDay").addEventListener("change", subscribeDay);
-$("#mDriver").addEventListener("change", renderManager);
+// عمر آخر موقع: حديث (أقل من 15 دقيقة) / من شوي (أقل من ساعتين) / قديم
+const liveState = l => !l || l.lat==null ? "none" : (Date.now()-l.ts < 15*60000) ? "fresh" : (Date.now()-l.ts < 2*3600000) ? "recent" : "old";
+const stateColor = s => getComputedStyle(document.documentElement).getPropertyValue(s==="fresh"?"--ok":s==="recent"?"--sun":"--idle").trim();
+const statePill = s => s==="fresh"?`<span class="pill done">حديث</span>`:s==="recent"?`<span class="pill out">من شوي</span>`:s==="old"?`<span class="pill idle">قديم</span>`:`<span class="pill idle">ما في موقع</span>`;
+let selectedDriver = null;
 
 function renderMarkers(){
   if(!map) return;
   Object.keys(markers).forEach(id=>{ if(!locs[id]){ map.removeLayer(markers[id]); delete markers[id]; } });
   Object.entries(locs).forEach(([id,l])=>{
     if(l.lat==null) return;
-    const st=liveState(l); if(st==="idle" && Date.now()-l.ts > 12*3600000){ if(markers[id]){ map.removeLayer(markers[id]); delete markers[id]; } return; }
-    const c=stateColor(st);
+    const st=liveState(l), c=stateColor(st);
     const html=`<div style="--c:${c}"><div class="marker-pin"></div><div class="marker-label">${esc(userName(id))}</div></div>`;
     const icon=L.divIcon({html, className:"", iconSize:[0,0]});
-    const pop=`<b>${esc(userName(id))}</b><br>${st==="live"?"مباشر":st==="stale"?"توقف التحديث":"خارج التوصيل"} · ${ago(l.ts)}${l.speed!=null?`<br>السرعة ${l.speed} كم/س`:""}<br>طلبات معه: ${l.open||0}<br><a href="${gmaps(l)}" target="_blank" rel="noopener">افتح في خرائط Google</a>`;
+    const pop=`<b>${esc(userName(id))}</b><br>${esc(l.event||"")} · ${ago(l.ts)} (${tFmt(l.ts)})<br><a href="${gmaps(l)}" target="_blank" rel="noopener">افتح في خرائط Google</a>`;
     if(markers[id]){ markers[id].setLatLng([l.lat,l.lng]).setIcon(icon).setPopupContent(pop); }
-    else markers[id]=L.marker([l.lat,l.lng],{icon}).bindPopup(pop).addTo(map);
+    else markers[id]=L.marker([l.lat,l.lng],{icon}).bindPopup(pop).on("click",()=>selectDriver(id,false)).addTo(map);
   });
 }
 
 function renderLive(){
-  const ids=[...new Set([...users.filter(u=>u.role==="driver").map(u=>u.id), ...Object.keys(locs)])];
-  const rows=ids.map(id=>{ const l=locs[id], st=liveState(l); const open=mgrOrders.filter(o=>o.driverId===id&&o.status==="out"); return {id,l,st,open}; })
-    .sort((a,b)=>({live:0,stale:1,idle:2}[a.st]-{live:0,stale:1,idle:2}[b.st]));
+  const ids=[...new Set([...users.filter(u=>u.role==="driver").map(u=>u.id), ...Object.keys(locs).filter(id=>users.find(u=>u.id===id)?.role!=="disabled")])];
+  const order={fresh:0,recent:1,old:2,none:3};
+  const rows=ids.map(id=>{ const l=locs[id]; return {id,l,st:liveState(l),open:mgrOrders.filter(o=>o.driverId===id&&o.status==="out")}; })
+    .sort((a,b)=>order[a.st]-order[b.st] || userName(a.id).localeCompare(userName(b.id),"ar"));
   $("#liveList").innerHTML = rows.length ? rows.map(r=>`
-    <div class="drv" data-id="${esc(r.id)}">
-      <div><b>${esc(userName(r.id))}</b><span class="note">${r.open.length?`معه ${r.open.length}: ${esc(r.open.map(o=>o.area).join("، "))}`:"ما معه طلبات"}${r.l?` · ${ago(r.l.ts)}`:""}</span></div>
-      ${r.st==="live"?`<span class="pill done">مباشر</span>`:r.st==="stale"?`<span class="pill out">توقف التحديث</span>`:`<span class="pill idle">خارج التوصيل</span>`}
+    <div class="drv${r.id===selectedDriver?" sel":""}" data-id="${esc(r.id)}" role="button" tabindex="0">
+      <div style="min-width:0"><b>${esc(userName(r.id))}</b><span class="note">${r.l?`${esc(r.l.event||"آخر مكان")} · ${ago(r.l.ts)}`:"ما سجّل موقع بعد"}${r.open.length?` · معه ${r.open.length} طلب`:""}</span></div>
+      ${statePill(r.st)}
     </div>`).join("") : `<div class="empty">ما في سايقين بعد. أعطهم رابط الصفحة ليسجّلوا، ثم وافق عليهم من «الحسابات».</div>`;
+  renderDetail();
 }
-$("#liveList").addEventListener("click", e=>{
-  const row=e.target.closest(".drv"); if(!row||!map) return;
-  const l=locs[row.dataset.id]; if(!l||l.lat==null) return toast("ما في موقع لهذا السايق بعد");
-  map.flyTo([l.lat,l.lng],15); markers[row.dataset.id]?.openPopup();
-  document.getElementById("map").scrollIntoView({behavior:"smooth",block:"center"});
-});
+
+function renderDetail(){
+  const box=$("#drvDetail");
+  if(!selectedDriver){ box.hidden=true; return; }
+  const id=selectedDriver, l=locs[id], u=users.find(x=>x.id===id)||{}, st=liveState(l);
+  const open=mgrOrders.filter(o=>o.driverId===id&&o.status==="out");
+  const live=safeUrl(u.liveLink);
+  box.hidden=false;
+  box.innerHTML=`
+    <div class="row" style="justify-content:space-between;align-items:center"><h2>${esc(userName(id))}</h2>${statePill(st)}</div>
+    ${l&&l.lat!=null?`<div><b>آخر مكان معروف:</b> ${esc(l.event||"")}<br><span class="note">${tFmt(l.ts)} · ${ago(l.ts)}${l.acc?` · دقة ${l.acc} م`:""}</span></div>`
+      :`<div class="note">ما سجّل موقع بعد. يتسجّل أول ما يستلم أو يسلّم طلب.</div>`}
+    <div class="note">${open.length?`معه الحين ${open.length} طلب: ${esc(open.map(o=>o.area).join("، "))}`:"ما معه طلبات حالياً"}</div>
+    <div class="row">
+      ${l&&l.lat!=null?`<a class="btn small" href="${gmaps(l)}" target="_blank" rel="noopener">افتح آخر مكان في الخرائط</a>`:""}
+      ${live?`<a class="btn small primary" href="${esc(live)}" target="_blank" rel="noopener">موقعه المباشر الآن ↗</a>`:`<span class="note">لإضافة الموقع المباشر: حط رابط مشاركة Google Maps له في «الحسابات»</span>`}
+    </div>`;
+}
+function selectDriver(id, fly=true){
+  selectedDriver=id; renderLive();
+  const l=locs[id];
+  if(fly && map && l && l.lat!=null){ map.flyTo([l.lat,l.lng],15); markers[id]?.openPopup(); }
+  $("#drvDetail").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+$("#liveList").addEventListener("click", e=>{ const row=e.target.closest(".drv"); if(row) selectDriver(row.dataset.id); });
+$("#liveList").addEventListener("keydown", e=>{ const row=e.target.closest(".drv"); if(row && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); selectDriver(row.dataset.id); } });
+const safeUrl = u => /^https:\/\//i.test(u||"") ? u : "";
 
 function renderDriverFilter(){
   const m=$("#mDriver"), v=m.value;
@@ -514,6 +519,7 @@ function renderUsers(){
       <div class="row">${u.id===uid?"":u.role==="pending"?`<button class="btn small primary approve" type="button">موافقة كسايق</button><button class="btn small ghost warn disable" type="button">رفض</button>`
         :u.role==="driver"?`<button class="btn small ghost warn disable" type="button">إيقاف</button>`
         :u.role==="disabled"?`<button class="btn small approve" type="button">إعادة تفعيل</button>`:""}</div>
+      ${u.role==="driver"?`<div class="row" style="flex:1 1 100%"><input class="liveIn" id="live-${esc(u.id)}" type="url" value="${esc(u.liveLink||"")}" placeholder="رابط مشاركة الموقع من Google Maps (اختياري)" style="flex:1 1 220px"><button class="btn small saveLive" type="button">حفظ الرابط</button></div>`:""}
     </div>`).join("") : `<div class="empty">ما في حسابات.</div>`;
 }
 $("#userList").addEventListener("click", async e=>{
@@ -522,6 +528,11 @@ $("#userList").addEventListener("click", async e=>{
   try{
     if(e.target.classList.contains("approve")){ await ref.update({role:"driver"}); toast("تمت الموافقة"); }
     else if(e.target.classList.contains("disable")){ await ref.update({role:"disabled"}); toast("تم الإيقاف"); }
+    else if(e.target.classList.contains("saveLive")){
+      const v=row.querySelector(".liveIn").value.trim();
+      if(v && !safeUrl(v)) return toast("الرابط لازم يبدأ بـ https://");
+      await ref.update({liveLink:v}); toast("تم حفظ الرابط");
+    }
   }catch{ toast("ما انحفظ التعديل"); }
 });
 
